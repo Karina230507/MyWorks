@@ -1,0 +1,105 @@
+import java.io.*;
+import java.util.*;
+
+public class ArchiveSolver {
+
+    // Исключение для ошибки размера диска
+    static class InvalidDiskSizeException extends Exception {
+        InvalidDiskSizeException(String msg) { super(msg); }
+    }
+
+    // Исключение для ошибки количества пользователей
+    static class InvalidUsersCountException extends Exception {
+        InvalidUsersCountException(String msg) { super(msg); }
+    }
+
+    // Отладочный класс (можно выключить, поменяв true на false)
+    static class Debug {
+        static boolean on = true;  // вкл/выкл отладки
+        static void log(String msg) { if (on) System.out.println("[DEBUG] " + msg); }
+    }
+
+    public static void main(String[] args) {
+        try {
+            // открываю файл
+            BufferedReader f = new BufferedReader(new FileReader("26_demo.txt"));
+
+            // читаю первую строку: размер диска и количество пользователей
+            String[] first = f.readLine().split(" ");
+            int s = Integer.parseInt(first[0]);  // свободное место на диске
+            int n = Integer.parseInt(first[1]);  // количество пользователей
+
+            // проверяю исключения
+            if (s < 1 || s > 10000) throw new InvalidDiskSizeException("Размер диска должен быть 1-10000");
+            if (n < 1 || n > 5000) throw new InvalidUsersCountException("Кол-во пользователей 1-5000");
+
+            // создаю массив для объёмов файлов
+            int[] data = new int[n];
+            for (int i = 0; i < n; i++) {
+                data[i] = Integer.parseInt(f.readLine());
+            }
+            f.close();
+
+            // сортирую файлы по возрастанию (как в питоне sorted)
+            Arrays.sort(data);
+            Debug.log("Отсортировано: " + Arrays.toString(data));
+
+            // считаю сумму и количество файлов, пока влезают
+            int summa = 0;
+            int count = 0;
+            for (int i = 0; i < n; i++) {
+                if (summa + data[i] > s) break;  // не влезает - выходим
+                summa += data[i];
+                count++;
+            }
+            Debug.log("Сумма=" + summa + ", кол-во=" + count);
+
+            // остаток места
+            int zapas = s - summa;
+            Debug.log("Запас=" + zapas);
+
+            // ищем максимальный файл, который можно сохранить
+            int itog = data[count - 1];  // начинаем с последнего взятого
+            for (int i = 0; i < n; i++) {
+                // если разница с последним взятым не больше запаса
+                if (data[i] - data[count - 1] <= zapas) {
+                    itog = data[i];  // берём больший файл
+                }
+            }
+            Debug.log("Итоговый файл=" + itog);
+
+            // вывод результата
+            System.out.println(count + " " + itog);
+
+        } catch (InvalidDiskSizeException e) {
+            System.err.println("Ошибка: " + e.getMessage());
+        } catch (InvalidUsersCountException e) {
+            System.err.println("Ошибка: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Ошибка: " + e.getMessage());
+        }
+    }
+}
+
+// простой юнит-тест
+class Test {
+    public static void main(String[] args) {
+        System.out.println("=== ТЕСТ ===");
+
+        // создаю тестовый файл
+        try {
+            BufferedWriter w = new BufferedWriter(new FileWriter("26_demo.txt"));
+            w.write("100 4\n80\n30\n50\n40");
+            w.close();
+
+            // запуск решение
+            ArchiveSolver.main(null);
+
+            // ожидаемый вывод: 2 50
+            System.out.println("Ожидалось: 2 50");
+
+        } catch (Exception e) {
+            System.out.println("Ошибка: " + e);
+        }
+    }
+}
