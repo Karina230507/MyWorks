@@ -1,0 +1,168 @@
+import java.util.logging.*;
+
+/**
+ * Класс для мониторинга потоков — создаю для отладки
+ */
+class ThreadMonitor {
+    private static final Logger logger = Logger.getLogger(ThreadMonitor.class.getName());
+
+    public void logThreadState(Thread thread) {
+        // Логирую состояние потока обычным сообщением, не красным
+        logger.info("Состояние потока '" + thread.getName() + "': " + thread.getState() +
+                ", приоритет: " + thread.getPriority());
+    }
+}
+
+/**
+ * Класс для проверки данных — делаю, чтобы убедиться, что всё корректно
+ */
+class DataValidator {
+    private static final Logger logger = Logger.getLogger(DataValidator.class.getName());
+
+    public void validateDistance(int distance, String animalName) {
+        if (distance < 0 || distance > 100) {
+            logger.warning("Ошибка у " + animalName + ": дистанция " + distance);
+        }
+    }
+
+    public void checkWinner(String winner) {
+        logger.info("Победитель определён: " + winner);
+    }
+}
+
+/**
+ * Класс для потока-зверушки — расширяю Thread
+ */
+class AnimalThread extends Thread {
+    private static final Logger logger = Logger.getLogger(AnimalThread.class.getName());
+    private String animalName;
+    private int distance = 0;
+
+    // Конструктор — задаю имя и приоритет
+    public AnimalThread(String name, int priority) {
+        super(name);
+        this.animalName = name;
+        this.setPriority(priority);
+    }
+
+    // Метод run — описываю, что делает зверушка
+    public void run() {
+        logger.info(animalName + " начинает гонку! Приоритет: " + this.getPriority());
+
+        while (distance < 100) {
+            distance++;
+
+            // Логирую только каждый 10-й метр, чтобы не было слишком много сообщений
+            if (distance % 20 == 0) {
+                logger.info(animalName + " пробежал " + distance + " метров");
+            }
+
+            try {
+                // Задержка — чем выше приоритет, тем быстрее бежит
+                Thread.sleep(100 - (this.getPriority() * 5));
+            } catch (InterruptedException e) {
+                logger.warning(animalName + " прерван!");
+            }
+        }
+
+        logger.info("=== " + animalName + " ФИНИШИРОВАЛ! ===");
+    }
+
+    public int getDistance() {
+        return distance;
+    }
+
+    public String getAnimalName() {
+        return animalName;
+    }
+}
+
+/**
+ * Главный класс — запускаю гонку
+ */
+public class Main {
+    private static final Logger logger = Logger.getLogger(Main.class.getName());
+
+    public static void main(String[] args) {
+        // Настраиваю логирование, чтобы вывод был нормальным, а не красным
+        setupLogging();
+
+        logger.info("=== ГОНКА ЗАЙЦА И ЧЕРЕПАХИ ===");
+
+        // Создаю зверушек
+        AnimalThread rabbit = new AnimalThread("Зайчик", Thread.MIN_PRIORITY);
+        AnimalThread turtle = new AnimalThread("Черепашка", Thread.MAX_PRIORITY);
+
+        // Создаю отладочные объекты
+        ThreadMonitor monitor = new ThreadMonitor();
+        DataValidator validator = new DataValidator();
+
+        // Запускаю потоки
+        rabbit.start();
+        turtle.start();
+
+        // Немного жду и проверяю состояние
+        try {
+            Thread.sleep(50);
+            monitor.logThreadState(rabbit);
+            monitor.logThreadState(turtle);
+        } catch (InterruptedException e) {
+            logger.warning("Задержка прервана");
+        }
+
+        // Жду завершения гонки
+        try {
+            rabbit.join();
+            turtle.join();
+        } catch (InterruptedException e) {
+            logger.warning("Гонка прервана!");
+        }
+
+        // Проверяю и вывожу результаты
+        validator.validateDistance(rabbit.getDistance(), rabbit.getAnimalName());
+        validator.validateDistance(turtle.getDistance(), turtle.getAnimalName());
+
+        logger.info("\n=== РЕЗУЛЬТАТЫ ГОНКИ ===");
+        logger.info("Зайчик пробежал: " + rabbit.getDistance() + " метров");
+        logger.info("Черепашка пробежала: " + turtle.getDistance() + " метров");
+
+        // Определяю победителя
+        if (rabbit.getDistance() > turtle.getDistance()) {
+            logger.info("ПОБЕДИЛ ЗАЙЧИК!");
+            validator.checkWinner("Зайчик");
+        } else if (turtle.getDistance() > rabbit.getDistance()) {
+            logger.info("ПОБЕДИЛА ЧЕРЕПАШКА!");
+            validator.checkWinner("Черепашка");
+        } else {
+            logger.info("НИЧЬЯ!");
+        }
+    }
+
+    // Настраиваю вывод логов
+    private static void setupLogging() {
+        // Отключаю стандартные хендлеры
+        Logger rootLogger = Logger.getLogger("");
+        for (java.util.logging.Handler handler : rootLogger.getHandlers()) {
+            rootLogger.removeHandler(handler);
+        }
+
+        // Добавляю свой хендлер с простым форматированием
+        ConsoleHandler handler = new ConsoleHandler();
+        handler.setFormatter(new SimpleFormatter() {
+            @Override
+            public synchronized String format(LogRecord record) {
+                // Простой формат: только время и сообщение, без лишнего
+                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("HH:mm:ss.SSS");
+                return "[" + sdf.format(new java.util.Date(record.getMillis())) + "] "
+                        + record.getMessage() + "\n";
+            }
+        });
+
+        rootLogger.addHandler(handler);
+        rootLogger.setLevel(Level.INFO);
+
+        // Настраиваю уровни для моих классов
+        Logger.getLogger(AnimalThread.class.getName()).setLevel(Level.INFO);
+        Logger.getLogger(Main.class.getName()).setLevel(Level.INFO);
+    }
+}
